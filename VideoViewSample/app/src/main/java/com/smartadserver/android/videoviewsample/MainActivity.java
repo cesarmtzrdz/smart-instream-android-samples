@@ -8,35 +8,59 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.ViewGroup;
 import android.widget.MediaController;
 import android.widget.TextView;
 import android.widget.VideoView;
 
+import com.smartadserver.android.coresdk.components.openmeasurement.SCSOpenMeasurementManager;
+import com.smartadserver.android.coresdk.components.remotelogger.SCSRemoteLogUtils;
+import com.smartadserver.android.coresdk.components.viewabilitymanager.SCSViewabilityStatus;
+import com.smartadserver.android.coresdk.util.SCSConstants;
+import com.smartadserver.android.coresdk.util.SCSUtil;
+import com.smartadserver.android.coresdk.vast.SCSVastConstants;
 import com.smartadserver.android.instreamsdk.SVSContentPlayerPlugin;
 import com.smartadserver.android.instreamsdk.admanager.SVSAdManager;
 import com.smartadserver.android.instreamsdk.admanager.SVSCuePoint;
+import com.smartadserver.android.instreamsdk.adplayer.SVSAdPlaybackEvent;
 import com.smartadserver.android.instreamsdk.adrules.SVSAdRule;
 import com.smartadserver.android.instreamsdk.adrules.SVSAdRuleData;
+import com.smartadserver.android.instreamsdk.components.remotelogger.SVSRemoteLogger;
+import com.smartadserver.android.instreamsdk.model.adbreak.SVSAdBreakType;
 import com.smartadserver.android.instreamsdk.model.adbreak.event.SVSAdBreakEvent;
+import com.smartadserver.android.instreamsdk.model.adobjects.SVSAdObject;
 import com.smartadserver.android.instreamsdk.model.adplacement.SVSAdPlacement;
 import com.smartadserver.android.instreamsdk.model.adplayerconfig.SVSAdPlayerConfiguration;
 import com.smartadserver.android.instreamsdk.model.contentdata.SVSContentData;
 import com.smartadserver.android.instreamsdk.plugin.SVSVideoViewPlugin;
 import com.smartadserver.android.instreamsdk.util.SVSLibraryInfo;
+import com.smartadserver.android.instreamsdk.util.logging.SVSLog;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 /**
  * Simple activity that contains one an instance of {@link VideoView} as content player
  */
 @SuppressWarnings("DanglingJavadoc")
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEvent.OnAdPlaybackEventListener {
 
     // Constants
 
     // content video url
     static final private String CONTENT_VIDEO_URL = "https://ns.sascdn.com/mobilesdk/samples/videos/BigBuckBunnyTrailer_360p.mp4";
+
+    private final List<String> VIDEOS =  new ArrayList<String>(){{
+
+        add("video1");
+        add("video4");
+    }};
+
+    private int videoIndex = 0;
+    private static final String TAG = "MainActivity";
+
 
     // Smart Instream SDK placement parameters
     static final public int SITE_ID = 205812;
@@ -115,6 +139,7 @@ public class MainActivity extends AppCompatActivity {
         if (adManager != null) {
             adManager.onResume();
         }
+        playVideo();
     }
 
     /**
@@ -154,7 +179,6 @@ public class MainActivity extends AppCompatActivity {
     private void configurePlayer() {
         mediaController = new MediaController(this);
         videoView.setMediaController(mediaController);
-        videoView.setVideoURI(Uri.parse(CONTENT_VIDEO_URL));
 
         // add a listener on the VideoView instance to start the SVSAdManager when the video is prepared
         videoView.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
@@ -166,6 +190,39 @@ public class MainActivity extends AppCompatActivity {
                 startAdManager();
             }
         });
+
+        videoView.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mediaPlayer) {
+                adManager.notifyContentHasCompleted();
+                moveIndex();
+                Log.d(TAG, "onCompletion of VIDEO");
+            }
+        });
+
+        videoView.setOnErrorListener((mp, what, extra) -> {
+            Log.e(TAG, "configurePlayer - ERROR: " + what);
+            moveIndex();
+            return true;
+        });
+    }
+
+    private void moveIndex(){
+        videoIndex++;
+        if (videoIndex >= VIDEOS.size()) {
+            videoIndex = 0;
+        }
+        playVideo();
+    }
+
+    private void playVideo(){
+        String path = "android.resource://" + getPackageName() + "/" + getResources().getIdentifier(VIDEOS.get(videoIndex), "raw", this.getPackageName());
+        Log.d(TAG, "playVideo: " + path);
+        videoView.setVideoPath(path);
+        if(adManager != null){
+            adManager.replay();
+        }
+        videoView.start();
     }
 
     /**
@@ -206,7 +263,11 @@ public class MainActivity extends AppCompatActivity {
         adManager.addAdManagerListener(new SVSAdManager.AdManagerListener() {
             @Override
             public void onAdBreakEvent(@NonNull SVSAdBreakEvent svsAdBreakEvent) {
-                // Called for any event concerning AdBreaks such as Start, Complete, etc.
+
+                //Postroll AD Ended?
+                /*if(svsAdBreakEvent.getAdBreakType() == SVSAdBreakType.POSTROLL && svsAdBreakEvent.getAdPlaybackTime() != 0){
+                    moveIndex();
+                }*/
             }
 
             @Override
@@ -288,15 +349,19 @@ public class MainActivity extends AppCompatActivity {
          * SVSAdManager will create its own if no SVSAdPlayerConfiguration is passed upon initialization.
          *************************************************************************************************/
 
-        // Create a new SVSAdPlayerConfiguration.
         SVSAdPlayerConfiguration adPlayerConfiguration = new SVSAdPlayerConfiguration();
 
-        // Force skip delay of 5 seconds for any ad.
-        adPlayerConfiguration.getPublisherOptions().setForceSkipDelay(true);
-        adPlayerConfiguration.getPublisherOptions().setSkipDelay(5000);
-
-        // video view to not have fullscreen button.
+        // Force skip delay of 5 seconds for any ad. See API for more options...
+        adPlayerConfiguration.getPublisherOptions().setForceSkipDelay(false);
+        //disable full screen
         adPlayerConfiguration.getDisplayOptions().setEnableFullscreen(false);
+        //disable count on ads
+        adPlayerConfiguration.getDisplayOptions().setEnableCountdownSkip(false);
+        adPlayerConfiguration.getDisplayOptions().setEnableCountdownVideo(false);
+
+        //Enable Remote Rules Config
+        adPlayerConfiguration.getPublisherOptions().setEnableSSAR(true);
+        adPlayerConfiguration.getPublisherOptions().setReplayAds(true);
 
         // See API for more options...
         return adPlayerConfiguration;
@@ -350,4 +415,16 @@ public class MainActivity extends AppCompatActivity {
         return new SVSVideoViewPlugin(videoView, mediaController, contentPlayerContainer, false);
     }
 
+    @Override
+    public void onAdPlaybackEvent(@NonNull SVSAdPlaybackEvent svsAdPlaybackEvent) {
+            SVSAdObject adObject = svsAdPlaybackEvent.getAdObject();
+            Log.d(TAG, "onAdPlaybackEvent: " + svsAdPlaybackEvent.getType());
+            if(svsAdPlaybackEvent.getType()==3) {
+                    Log.d(TAG, "onAdPlaybackEvent: AD FINSIHED!!! ");
+                    adManager.replay();
+            }
+
+
+
+    }
 }

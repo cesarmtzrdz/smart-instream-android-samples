@@ -14,5 +14,6 @@ public class VideoViewSampleApplication extends Application {
 
         // the configuration must be setup before making any ad call
         SVSConfiguration.getSharedInstance().configure(this, MainActivity.SITE_ID);
+        SVSConfiguration.getSharedInstance().setLoggingEnabled(true);
     }
 }
