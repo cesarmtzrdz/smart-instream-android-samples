@@ -55,7 +55,8 @@ public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEven
     private final List<String> VIDEOS =  new ArrayList<String>(){{
 
         add("video1");
-        add("video4");
+        add("video2");
+        add("video3");
     }};
 
     private int videoIndex = 0;
