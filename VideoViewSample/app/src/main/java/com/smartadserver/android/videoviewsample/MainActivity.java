@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.MediaController;
 import android.widget.TextView;
 import android.widget.VideoView;
@@ -64,9 +65,9 @@ public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEven
 
 
     // Smart Instream SDK placement parameters
-    static final public int SITE_ID = 205812;
-    static final public int PAGE_ID = 890742;
-    static final public int FORMAT_ID = 27153;
+    static final public int SITE_ID = 0;
+    static final public int PAGE_ID = 0;
+    static final public int FORMAT_ID = 0;
     static final public String TARGET = "";
 
     // Smart Instream SDK main ad manager class
@@ -81,6 +82,7 @@ public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEven
     // VideoView related properties
     private VideoView videoView;
     private MediaController mediaController;
+    private Button next;
 
     /**
      * Performs Activity initialization after creation.
@@ -93,6 +95,8 @@ public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEven
 
         // Set label of SDK version label
         TextView sdkVersionTextview = findViewById(R.id.sdk_version_textview);
+        next = findViewById(R.id.next_btn);
+        next.setOnClickListener(v -> nextVideo());
         sdkVersionTextview.setText("Smart Instream SDK v" + SVSLibraryInfo.getSharedInstance().getVersion());
 
         /**
@@ -195,7 +199,7 @@ public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEven
         videoView.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
             @Override
             public void onCompletion(MediaPlayer mediaPlayer) {
-                adManager.notifyContentHasCompleted();
+                //adManager.notifyContentHasCompleted();
                 moveIndex();
                 Log.d(TAG, "onCompletion of VIDEO");
             }
@@ -216,11 +220,19 @@ public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEven
         playVideo();
     }
 
+    private void nextVideo(){
+        adManager.cancelAdLoading();
+        adManager.notifyContentHasCompleted();
+        moveIndex();
+    }
+
     private void playVideo(){
+        Log.d(TAG, "playVideo: ");
         String path = "android.resource://" + getPackageName() + "/" + getResources().getIdentifier(VIDEOS.get(videoIndex), "raw", this.getPackageName());
         Log.d(TAG, "playVideo: " + path);
         videoView.setVideoPath(path);
         if(adManager != null){
+            Log.d(TAG, "playVideo: NOT MULL");
             adManager.replay();
         }
         videoView.start();
@@ -266,7 +278,7 @@ public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEven
             public void onAdBreakEvent(@NonNull SVSAdBreakEvent svsAdBreakEvent) {
 
                 //Postroll AD Ended?
-                /*if(svsAdBreakEvent.getAdBreakType() == SVSAdBreakType.POSTROLL && svsAdBreakEvent.getAdPlaybackTime() != 0){
+               /* if(svsAdBreakEvent.getAdBreakType() == SVSAdBreakType.POSTROLL && svsAdBreakEvent.getAdPlaybackTime() != 0){
                     moveIndex();
                 }*/
             }
