@@ -39,4 +39,6 @@ dependencies {
     // Import Smart Instream SDK
     implementation 'com.smartadserver.android:smart-instream-sdk:7.11.0'
 
+    implementation 'com.danikula:videocache:2.7.1'
+
 }

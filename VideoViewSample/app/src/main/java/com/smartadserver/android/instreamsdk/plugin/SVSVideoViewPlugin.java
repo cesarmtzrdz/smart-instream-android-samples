@@ -26,19 +26,21 @@ public class SVSVideoViewPlugin implements SVSContentPlayerPlugin {
     private MediaController controls;
     private boolean isLiveContent;
     private boolean hasCompleted;
+    private SVSVideoViewPlugin.HideControlButtons viewButtons;
 
     /**
      * Constructor
      * @param videoView the VideoView handled by this plugin
      * @param contentPlayerContainer the ViewGroup containing the VideoView
      */
-    public SVSVideoViewPlugin(@NonNull VideoView videoView, @NonNull MediaController controls, @NonNull ViewGroup contentPlayerContainer, boolean isLiveContent) {
+    public SVSVideoViewPlugin(@NonNull VideoView videoView, @NonNull MediaController controls, @NonNull ViewGroup contentPlayerContainer, boolean isLiveContent, SVSVideoViewPlugin.HideControlButtons buttonsImpl) {
         this.mainHandler = new Handler(Looper.getMainLooper());
         this.videoView = videoView;
         this.controls = controls;
         this.contentPlayerContainer = contentPlayerContainer;
         this.isLiveContent = isLiveContent;
         this.hasCompleted = false;
+        viewButtons = buttonsImpl;
     }
 
     /**
@@ -52,7 +54,9 @@ public class SVSVideoViewPlugin implements SVSContentPlayerPlugin {
         mainHandler.post(new Runnable() {
             @Override
             public void run() {
+                viewButtons.showButtons();
                 videoView.start();
+                videoView.setVisibility(ViewGroup.VISIBLE);
             }
         });
     }
@@ -67,8 +71,10 @@ public class SVSVideoViewPlugin implements SVSContentPlayerPlugin {
             @Override
             public void run() {
                 // ensure that controls are hidden to to appear over the ad player.
+                viewButtons.hideButtons();
                 controls.hide();
                 videoView.pause();
+                videoView.setVisibility(ViewGroup.INVISIBLE);
             }
         });
     }
@@ -125,5 +131,10 @@ public class SVSVideoViewPlugin implements SVSContentPlayerPlugin {
     @NonNull
     public ViewGroup getContentPlayerContainer() {
         return contentPlayerContainer;
+    }
+
+    public interface HideControlButtons{
+        void showButtons();
+        void hideButtons();
     }
 }

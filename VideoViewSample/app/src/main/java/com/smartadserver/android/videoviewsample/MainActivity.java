@@ -9,7 +9,9 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.MediaController;
 import android.widget.TextView;
@@ -34,6 +36,7 @@ import com.smartadserver.android.instreamsdk.model.adobjects.SVSAdObject;
 import com.smartadserver.android.instreamsdk.model.adplacement.SVSAdPlacement;
 import com.smartadserver.android.instreamsdk.model.adplayerconfig.SVSAdPlayerConfiguration;
 import com.smartadserver.android.instreamsdk.model.contentdata.SVSContentData;
+import com.smartadserver.android.instreamsdk.plugin.CreativeMediaCache;
 import com.smartadserver.android.instreamsdk.plugin.SVSVideoViewPlugin;
 import com.smartadserver.android.instreamsdk.util.SVSLibraryInfo;
 import com.smartadserver.android.instreamsdk.util.logging.SVSLog;
@@ -46,21 +49,25 @@ import java.util.List;
  * Simple activity that contains one an instance of {@link VideoView} as content player
  */
 @SuppressWarnings("DanglingJavadoc")
-public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEvent.OnAdPlaybackEventListener {
+public class MainActivity extends AppCompatActivity implements SVSVideoViewPlugin.HideControlButtons {
 
     // Constants
 
     // content video url
     static final private String CONTENT_VIDEO_URL = "https://ns.sascdn.com/mobilesdk/samples/videos/BigBuckBunnyTrailer_360p.mp4";
 
-    private final List<String> VIDEOS =  new ArrayList<String>(){{
-
+    //DUMMY list of contents
+    private final List<String> CONTENTS =  new ArrayList<String>(){{
+        add("format1.html");
         add("video1");
+        add("format2.html");
         add("video2");
+        add("format3.html");
         add("video3");
+        add("video4");
     }};
 
-    private int videoIndex = 0;
+    private int contentsIndex = 0;
     private static final String TAG = "MainActivity";
 
 
@@ -82,7 +89,9 @@ public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEven
     // VideoView related properties
     private VideoView videoView;
     private MediaController mediaController;
-    private Button next;
+    private Button nextBtn, prevBtn;
+
+    private WebView webView;
 
     /**
      * Performs Activity initialization after creation.
@@ -91,13 +100,15 @@ public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEven
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setSystemUIVisibility();
         setContentView(R.layout.activity_main);
 
-        // Set label of SDK version label
-        TextView sdkVersionTextview = findViewById(R.id.sdk_version_textview);
-        next = findViewById(R.id.next_btn);
-        next.setOnClickListener(v -> nextVideo());
-        sdkVersionTextview.setText("Smart Instream SDK v" + SVSLibraryInfo.getSharedInstance().getVersion());
+        nextBtn = findViewById(R.id.next_btn);
+        nextBtn.setOnClickListener(v -> nextContent());
+
+        prevBtn = findViewById(R.id.prev_btn);
+        prevBtn.setOnClickListener(v -> previousContent());
+
 
         /**
          * TCF Consent String v2 manual setting.
@@ -141,10 +152,11 @@ public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEven
     @Override
     protected void onResume() {
         super.onResume();
+        setSystemUIVisibility();
         if (adManager != null) {
             adManager.onResume();
         }
-        playVideo();
+        playContent();
     }
 
     /**
@@ -173,8 +185,12 @@ public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEven
      * Bind all views to their related attributes.
      */
     private void bindViews() {
+        mediaController = new MediaController(this);
         videoView = findViewById(R.id.video_view_player);
         contentPlayerContainer = findViewById(R.id.content_player_container);
+
+        webView = findViewById(R.id.webview);
+
     }
 
     /**
@@ -182,15 +198,11 @@ public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEven
      */
     @SuppressWarnings("Convert2Lambda")
     private void configurePlayer() {
-        mediaController = new MediaController(this);
-        videoView.setMediaController(mediaController);
 
         // add a listener on the VideoView instance to start the SVSAdManager when the video is prepared
         videoView.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
             @Override
             public void onPrepared(@NonNull MediaPlayer mediaPlayer) {
-                mediaPlayer.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT);
-                mediaController.setAnchorView(videoView);
                 // Once prepared, we start the SVSAdManager.
                 startAdManager();
             }
@@ -199,43 +211,75 @@ public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEven
         videoView.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
             @Override
             public void onCompletion(MediaPlayer mediaPlayer) {
-                //adManager.notifyContentHasCompleted();
-                moveIndex();
+                adManager.notifyContentHasCompleted();
+                nextContent();
                 Log.d(TAG, "onCompletion of VIDEO");
             }
         });
 
         videoView.setOnErrorListener((mp, what, extra) -> {
             Log.e(TAG, "configurePlayer - ERROR: " + what);
-            moveIndex();
+            nextContent();
             return true;
         });
     }
 
-    private void moveIndex(){
-        videoIndex++;
-        if (videoIndex >= VIDEOS.size()) {
-            videoIndex = 0;
+    private void nextContent(){
+        contentsIndex++;
+        if (contentsIndex >= CONTENTS.size()) {
+            contentsIndex = 0;
         }
-        playVideo();
+        if(videoView.isPlaying()){
+            videoView.seekTo(videoView.getDuration());
+        }
+        playContent();
     }
 
-    private void nextVideo(){
-        adManager.cancelAdLoading();
-        adManager.notifyContentHasCompleted();
-        moveIndex();
+    private void previousContent(){
+        contentsIndex--;
+        if (contentsIndex < 0) {
+            contentsIndex = CONTENTS.size()-1;
+        }
+        if(videoView.isPlaying()){
+            videoView.seekTo(videoView.getDuration());
+        }
+        playContent();
     }
 
-    private void playVideo(){
-        Log.d(TAG, "playVideo: ");
-        String path = "android.resource://" + getPackageName() + "/" + getResources().getIdentifier(VIDEOS.get(videoIndex), "raw", this.getPackageName());
-        Log.d(TAG, "playVideo: " + path);
-        videoView.setVideoPath(path);
-        if(adManager != null){
-            Log.d(TAG, "playVideo: NOT MULL");
-            adManager.replay();
+
+    /**
+     * Decides what to play, based on the CONTENTS array. If the string contains 'video', then will play the video
+     */
+    private void playContent(){
+        setSystemUIVisibility();
+
+        webView.setVisibility(View.INVISIBLE);
+        videoView.setVisibility(View.INVISIBLE);
+
+        String contentToPlay = CONTENTS.get(contentsIndex);
+        if(contentToPlay.contains("video")){
+            webView.setVisibility(View.INVISIBLE);
+            videoView.setVisibility(View.VISIBLE);
+            String path = "android.resource://" + getPackageName() + "/" + getResources().getIdentifier(CONTENTS.get(contentsIndex), "raw", this.getPackageName());
+            Log.d(TAG, "playVideo: " + path);
+
+            videoView.setVideoPath(path);
+            if(adManager != null){
+                //is this necessary?
+                adManager.replay();
+            }
+            videoView.start();
+
+
+
+        }else{
+            //WebView, hide VideoView show HTML
+            webView.setVisibility(View.VISIBLE);
+            videoView.setVisibility(View.INVISIBLE);
+            webView.loadUrl("file:///android_asset/" + contentToPlay);
         }
-        videoView.start();
+
+
     }
 
     /**
@@ -273,22 +317,8 @@ public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEven
         // Create the SVSAdManager instance.
         adManager = new SVSAdManager(this, adPlacement, adRules, adPlayerConfiguration, contentData);
 
-        adManager.addAdManagerListener(new SVSAdManager.AdManagerListener() {
-            @Override
-            public void onAdBreakEvent(@NonNull SVSAdBreakEvent svsAdBreakEvent) {
+        adManager.setCreativeMediaURIProvider(new CreativeMediaCache(this));
 
-                //Postroll AD Ended?
-               /* if(svsAdBreakEvent.getAdBreakType() == SVSAdBreakType.POSTROLL && svsAdBreakEvent.getAdPlaybackTime() != 0){
-                    moveIndex();
-                }*/
-            }
-
-            @Override
-            public void onCuePointsGenerated(@NonNull List<SVSCuePoint> list) {
-                // Called when cuepoints used for midroll ad break have been computed.
-                // You can use this method to display the ad break position in your content player UI…
-            }
-        });
     }
 
     /**
@@ -376,6 +406,7 @@ public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEven
         adPlayerConfiguration.getPublisherOptions().setEnableSSAR(true);
         adPlayerConfiguration.getPublisherOptions().setReplayAds(true);
 
+
         // See API for more options...
         return adPlayerConfiguration;
     }
@@ -425,19 +456,34 @@ public class MainActivity extends AppCompatActivity implements SVSAdPlaybackEven
          * the SVSContentPlayerPlugin interface. Here, we instantiate a ready-to-use SVSExoPlayerPlugin
          * for the ExoPlayer.
          ************************************************************************************************/
-        return new SVSVideoViewPlugin(videoView, mediaController, contentPlayerContainer, false);
+        return new SVSVideoViewPlugin(videoView, mediaController, contentPlayerContainer, false, this);
     }
 
     @Override
-    public void onAdPlaybackEvent(@NonNull SVSAdPlaybackEvent svsAdPlaybackEvent) {
-            SVSAdObject adObject = svsAdPlaybackEvent.getAdObject();
-            Log.d(TAG, "onAdPlaybackEvent: " + svsAdPlaybackEvent.getType());
-            if(svsAdPlaybackEvent.getType()==3) {
-                    Log.d(TAG, "onAdPlaybackEvent: AD FINSIHED!!! ");
-                    adManager.replay();
-            }
+    public void showButtons() {
+        nextBtn.setVisibility(View.VISIBLE);
+        prevBtn.setVisibility(View.VISIBLE);
+    }
 
+    @Override
+    public void hideButtons() {
+        nextBtn.setVisibility(View.GONE);
+        prevBtn.setVisibility(View.GONE);
+    }
 
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        setSystemUIVisibility();
+    }
 
+    private void setSystemUIVisibility() {
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
     }
 }

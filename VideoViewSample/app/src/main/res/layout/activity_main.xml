@@ -1,40 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main_constraint_layout"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.smartadserver.android.videoviewsample.MainActivity">
+    tools:context="com.smartadserver.android.videoviewsample.MainActivity"
+    android:background="#000000">
 
-    <!-- label to display instream SDK version-->
-    <TextView
-        android:id="@+id/sdk_version_textview"
+    <WebView
+        android:id="@+id/webview"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:textAlignment="center"/>
+        android:layout_height="match_parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
-    <Button android:id="@+id/next_btn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
-        android:text="Next">
-
-    </Button>
+    </WebView>
 
     <!-- content player container -->
     <FrameLayout
         android:id="@+id/content_player_container"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentTop="true">
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentBottom="true"
+        >
 
         <VideoView
             android:id="@+id/video_view_player"
             android:visibility="visible"
+            android:layout_gravity="center"
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
 
     </FrameLayout>
 
-</RelativeLayout>
+    <Button android:id="@+id/next_btn"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    app:layout_constraintRight_toRightOf="@id/content_player_container"
+    app:layout_constraintTop_toTopOf="@id/content_player_container"
+    app:layout_constraintBottom_toBottomOf="@id/content_player_container"
+        android:text="Next"></Button>
+
+    <Button android:id="@+id/prev_btn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintLeft_toLeftOf="@id/content_player_container"
+        app:layout_constraintTop_toTopOf="@id/content_player_container"
+        app:layout_constraintBottom_toBottomOf="@id/content_player_container"
+        android:text="Back">
+
+    </Button>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
